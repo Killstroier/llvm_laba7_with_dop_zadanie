@@ -190,122 +190,23 @@ diff -u hello.ll hello_opt.ll
     – CFG обеспечивает явную модель переходов управления, необходимую для сложных оптимизаций (распараллеливание, ветвления, устранение ветвей).  
     – Анализ на уровне IR быстрее и надёжнее, чем попытки переанализировать исходный код с учётом всех синтаксических особенностей.  
 
-## Дополнительное задание Вариант 5
 
-![image](https://github.com/user-attachments/assets/07e52cbe-3719-4493-8364-e764f9de1ada)
+## Дополнительное задание Вариант 3
 
-### Ход работы
+![изображение](https://github.com/user-attachments/assets/bb1f1f0f-710f-4e2b-b6d1-c17e9dc0112b)
 
-**1. Объявление константы и написание функции**
-``` C
-// limit.c
-#include <stdio.h>
-
-const int LIMIT = 100;
-
-int is_under_limit(int x) {
-    if (x < LIMIT)
-        return 1;
-    else
-        return 0;
-}
-
-int main(void) {
-    printf("42 < LIMIT? %d\n", is_under_limit(42));
-    printf("123 < LIMIT? %d\n", is_under_limit(123));
-    return 0;
-}
-```
-**Вывод:** Константа `LIMIT` объявлена как глобальная, функция `is_under_limit` использует её в условии.
-
-**2. Генерация IR без оптимизаций (-O0)**
-```clang -S -emit-llvm -O0 limit.c -o limit_O0.ll```
-
-![image](https://github.com/user-attachments/assets/79210510-4f17-4fe7-993b-d0edce91f741)
-
-**Вывод:** В файле `limit_O0.ll` видна загрузка глобальной переменной `@LIMIT = global i32 100` и инструкция `load` перед сравнением.
-
-**3. Генерация IR с оптимизацией уровня O2**
-```clang -S -emit-llvm -O2 limit.c -o limit_O2.ll```
-
-![image](https://github.com/user-attachments/assets/b62896bb-35ac-4891-9822-fc5626d069f7)
-
-**Вывод:** В `limit_O2.ll` отсутствует загрузка из `@LIMIT`; вместо неё напрямую используется литерал `100`, а определение глобальной константы удалено.
-
-**4. Применение pass constant-propagation**
-```clang --emit-llvm -c limit.c -o limit.bc```
-
-![image](https://github.com/user-attachments/assets/324f6776-9085-4c1f-92fc-569160138f59)
-
-**Вывод:** Pass constprop заменил все загрузки на литерал `100`, удалив глобальную `@LIMIT`, что подтверждает работу оптимизации констант.
-
-### Итоговый вывод по доп. заданию
-Константа `LIMIT` успешно подставилась на этапе оптимизации (`-O2`), что видно по отсутствию глобального определения и загрузки из памяти в оптимизированных IR-файлах.
-
-Вариант 7. Объявление массива символов с инициализацией строковой константой
-
-Тема: char msg[] = "Hello"; и вывод msg[1].
-
-Исходный код (variant7.c):
-
-#include <stdio.h>
-
-int main(void) {
-    char msg[] = "Hello";
-    printf("%c\n", msg[1]);  // ожидаемый вывод: 'e'
-    return 0;
-}
-
-
-## Дополнительное задание Вариант 7
-
-![image](https://github.com/user-attachments/assets/554b53da-436e-4b34-ab51-5dba198b5f53)
 
 IR без оптимизаций (`-O0`):
 
-```clang -S -emit-llvm -O0 variant7.c -o variant7_O0.ll```
+```clang -S -emit-llvm -O0 variant3.cpp -o variant3:_O0.ll```
 
-![image](https://github.com/user-attachments/assets/3e7fe4e0-108b-444c-b03a-efb09d1f4076)
-
-Фрагмент IR (`variant7_O0.ll`):
-
-```@.str = private unnamed_addr constant [6 x i8] c"Hello\00", align 1```
-```
-define i32 @main() {
-entry:
-  %ptr = getelementptr inbounds [6 x i8], [6 x i8]* @.str, i64 0, i64 1
-  %ch  = load i8, i8* %ptr, align 1
-  %ext = sext i8 %ch to i32
-  call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str.printf, i32 0, i32 0), i32 %ext)
-  ret i32 0
-}
-```
-
-![image](https://github.com/user-attachments/assets/fd1eff18-5bf5-445f-9efe-8e06598743a6)
+![изображение](https://github.com/user-attachments/assets/adbd0b5c-619a-4d78-bc19-177b66a6c259)
 
 
-**Вывод:** Строка хранится в глобальной константе `@.str`. Доступ к `msg[1]` реализован через `getelementptr` и `load`.
+Фрагмент IR с оптимизацией:
 
-IR с оптимизацией (`-O2`):
+![изображение](https://github.com/user-attachments/assets/5acbd306-6aed-4afa-a4cb-0fd3a38bc9b3)
 
-```clang -S -emit-llvm -O2 variant7.c -o variant7_O2.ll```
 
-![image](https://github.com/user-attachments/assets/49b090b7-4ad9-4a6d-906c-0f7131f5997e)
-
-Фрагмент IR (`variant7_O2.ll`):
-
-```@.str = private unnamed_addr constant [6 x i8] c"Hello\00", align 1```
-```
-define i32 @main() #0 {
-entry:
-  %0 = getelementptr inbounds [6 x i8], [6 x i8]* @.str, i64 0, i64 1
-  %1 = load i8, i8* %0, align 1
-  %2 = sext i8 %1 to i32
-  call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str.printf, i32 0, i32 0), i32 %2)
-  ret i32 0
-}
-```
-
-![image](https://github.com/user-attachments/assets/38e0aacf-4a5b-4d32-b4e8-25048b1d7c59)
 
 **Вывод:** Оптимизация не меняет структуру доступа: используется всё та же пара `getelementptr` + `load`, так как вычисление индекса выполняется во время выполнения.
